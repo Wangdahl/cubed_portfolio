@@ -49,6 +49,24 @@ const Cube = () => {
             };
         }, [isAutoRotating]);
         
+        useEffect(() => {
+            let timeoutId;
+            if (!isAutoRotating && lastInteraction) {
+                timeoutId = setTimeout(() => {
+                    // Compute the current phase from the frozen X value.
+                    // Since x = 20 * cos(phase), we have phase = arccos(x/20).
+                    const frozenX = rotation.x;
+                    const currentPhase = Math.acos(frozenX / 20);
+                    // Adjust phaseOffsetRef so autoRotate resumes from the frozen X value.
+                    phaseOffsetRef.current = performance.now() - (currentPhase * autoRotationPeriod) / (2 * Math.PI);
+                    setIsAutoRotating(true);
+                }, 1000);
+            }
+            return () => {
+                if (timeoutId) clearTimeout(timeoutId);
+            };
+        }, [isAutoRotating, lastInteraction, rotation.x]);
+        
 
     // Auto-resume - set time untill resume here.
     useEffect(() => {
@@ -56,7 +74,7 @@ const Cube = () => {
         if (!isAutoRotating && lastInteraction) {
         timeoutId = setTimeout(() => {
             setIsAutoRotating(true);
-        }, 1000);
+        }, 2000);
         }
         return () => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -69,8 +87,8 @@ const Cube = () => {
           (2 * Math.PI * ((now - phaseOffsetRef.current) % autoRotationPeriod)) / autoRotationPeriod
         );
         setRotation(prev => ({ ...prev, x: freezeX }));
-      };
-      
+    };
+    
     // Keyboard controls: when an arrow key is pressed, disable auto-rotation
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -109,14 +127,14 @@ const Cube = () => {
     // On mouse enter, pause auto-rotation immediately.
     const handleMouseEnter = () => {
         if (isAutoRotating) {
-          freezeRotation();
-          setIsAutoRotating(false);
-          setManualTransition(false);
+            freezeRotation();
+            setIsAutoRotating(false);
+            setManualTransition(false);
           // Removed updating phaseOffsetRef here.
-          setLastInteraction(Date.now());
+            setLastInteraction(Date.now());
         }
-      };
-      
+    };
+    
 
     return (
         <div className="cube-container">
