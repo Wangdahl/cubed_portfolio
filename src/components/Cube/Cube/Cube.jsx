@@ -62,10 +62,10 @@ const Cube = () => {
             };
         }, [isAutoRotating]);
         
-        // Effect to Resume Auto-Rotation Based on User Interaction
-        // When auto-rotation is paused and there was a user interaction,
-        // wait 1 second, then compute the current phase from the frozen X value, force the manual CSS
-        // transition off, reset the animation timestamp (with a 50ms offset), and resume auto-rotation.
+    // Effect to Resume Auto-Rotation Based on User Interaction
+    // When auto-rotation is paused and there was a user interaction,
+    // wait 1 second, then compute the current phase from the frozen X value, force the manual CSS
+    // transition off, reset the animation timestamp (with a 50ms offset), and resume auto-rotation.
     useEffect(() => {
         let timeoutId;
         if (!isAutoRotating && lastInteraction) {
@@ -91,26 +91,36 @@ const Cube = () => {
     }, [isAutoRotating, lastInteraction, rotation.x]);
 
     
-
+    // Calculates the current X rotation angle based on time and phase offset,
+    // then updates the state so that the cube appears "frozen" in its position.
+    // Helps with a smoother start / stop of the cube. 
     const freezeRotation = () => {
+        // Get the current performance time.
         const now = performance.now();
+        // Calculate the frozen X rotation, similar to auto-rotation logic.
         const freezeX = 20 * Math.cos(
           (2 * Math.PI * ((now - phaseOffsetRef.current) % autoRotationPeriod)) / autoRotationPeriod
         );
+        // Update the rotation state: preserve Y rotation and set X to the computed frozen value.
         setRotation(prev => ({ ...prev, x: freezeX }));
     };
     
-    // Keyboard controls: when an arrow key is pressed, disable auto-rotation
+    // Keyboard controls: when an arrow key is pressed, disable auto-rotation, updates the rotation, and applies a CSS transition.
     useEffect(() => {
         const handleKeyDown = (e) => {
+            // If auto-rotation is currently active, disable it.
             if (isAutoRotating) {
                 setIsAutoRotating(false);
+                // Store the current frame time as the phase offset so that auto-rotation can resume smoothly later.
                 if (lastTimeRef.current) {
                     phaseOffsetRef.current = lastTimeRef.current;
                 }
             }
+            // Record the time of this interaction.
             setLastInteraction(Date.now());
+            // Enable the manual CSS transition for a smooth rotation animation.
             setManualTransition(true);
+            // Check which key was pressed to determine rotation direction.
             if (e.key === 'ArrowLeft') {
                 setRotation((prev) => ({ ...prev, y: prev.y - 45 }));
             } else if (e.key === 'ArrowRight') {
@@ -120,13 +130,15 @@ const Cube = () => {
             if (manualTransitionTimeoutRef.current) {
                 clearTimeout(manualTransitionTimeoutRef.current);
             }
+            // Set a timeout to disable the manual transition after 600ms.
             manualTransitionTimeoutRef.current = setTimeout(() => {
                 setManualTransition(false);
                 manualTransitionTimeoutRef.current = null;
             }, 600);
             };
-        
+            // Add the keydown event listener to the window.
             window.addEventListener('keydown', handleKeyDown);
+             // Cleanup: remove the event listener and clear any pending timeout when the effect is re-run or the component unmounts.
             return () => {
             window.removeEventListener('keydown', handleKeyDown);
             if (manualTransitionTimeoutRef.current) {
@@ -138,10 +150,12 @@ const Cube = () => {
     // On mouse enter, pause auto-rotation immediately.
     const handleMouseEnter = () => {
         if (isAutoRotating) {
+            // Freeze the cube’s X rotation
             freezeRotation();
             setIsAutoRotating(false);
+            // Turn off manual transition to prevent any animation effects during the pause.
             setManualTransition(false);
-          // Removed updating phaseOffsetRef here.
+            // Record this interaction to later resume auto-rotation.
             setLastInteraction(Date.now());
         }
     };
