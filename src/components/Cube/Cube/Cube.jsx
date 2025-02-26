@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import './Cube.css';
 
+// New constants and ref for X wobble
+const autoRotationTargetSpeed = 0.02; // deg per ms for Y rotation
+const autoRotationPeriod = 20000;     // period (ms) for one full X wobble cycle
+
+
 const Cube = () => {
-    // Rotation state: start with a slight X tilt.
+    // Rotation states.
     const [rotation, setRotation] = useState({ x: 20, y: 0 });
     // Flag controlling auto-rotation (true = continuous rotation).
     const [isAutoRotating, setIsAutoRotating] = useState(true);
@@ -15,32 +20,35 @@ const Cube = () => {
     const animationRef = useRef(null);
     const lastTimeRef = useRef(null);
     const manualTransitionTimeoutRef = useRef(null);
+    const phaseOffsetRef = useRef(0);       // used to preserve X phase when pausing
 
     // Auto-rotation effect (runs without CSS transition).
     useEffect(() => {
         const autoRotate = (time) => {
-        if (lastTimeRef.current !== null) {
-            const delta = time - lastTimeRef.current;
-            // Update rotation: 0.02° per ms.
-            const increment = 0.02 * delta;
-            setRotation((prev) => ({ ...prev, y: prev.y + increment }));
-        }
-        lastTimeRef.current = time;
-        if (isAutoRotating) {
+            if (lastTimeRef.current !== null) {
+                const delta = time - lastTimeRef.current;
+                setRotation(prev => ({
+                y: prev.y + autoRotationTargetSpeed * delta,
+                // Compute X using cosine for the wobble effect:
+                x: 20 * Math.cos((2 * Math.PI * ((time - phaseOffsetRef.current) % autoRotationPeriod)) / autoRotationPeriod)
+                }));
+            }
+            lastTimeRef.current = time;
+            if (isAutoRotating) {
+                animationRef.current = requestAnimationFrame(autoRotate);
+            }
+            };
+        
+            if (isAutoRotating) {
+            lastTimeRef.current = null;
             animationRef.current = requestAnimationFrame(autoRotate);
-        }
-        };
-
-        if (isAutoRotating) {
-        // Reset the timestamp so no huge delta occurs.
-        lastTimeRef.current = null;
-        animationRef.current = requestAnimationFrame(autoRotate);
-        }
-
-        return () => {
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-        };
-    }, [isAutoRotating]);
+            }
+        
+            return () => {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            };
+        }, [isAutoRotating]);
+        
 
     // Auto-resume - set time untill resume here.
     useEffect(() => {
@@ -55,12 +63,22 @@ const Cube = () => {
         };
     }, [isAutoRotating, lastInteraction]);
 
+    const freezeRotation = () => {
+        const now = performance.now();
+        const freezeX = 20 * Math.cos(
+          (2 * Math.PI * ((now - phaseOffsetRef.current) % autoRotationPeriod)) / autoRotationPeriod
+        );
+        setRotation(prev => ({ ...prev, x: freezeX }));
+      };
+      
     // Keyboard controls: when an arrow key is pressed, disable auto-rotation
-    // and perform a manual update with CSS transition.
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (isAutoRotating) {
                 setIsAutoRotating(false);
+                if (lastTimeRef.current) {
+                    phaseOffsetRef.current = lastTimeRef.current;
+                }
             }
             setLastInteraction(Date.now());
             setManualTransition(true);
@@ -91,12 +109,14 @@ const Cube = () => {
     // On mouse enter, pause auto-rotation immediately.
     const handleMouseEnter = () => {
         if (isAutoRotating) {
-        setIsAutoRotating(false);
-        // Ensure that no transition is applied, so the cube simply freezes.
-        setManualTransition(false);
-        setLastInteraction(Date.now());
+          freezeRotation();
+          setIsAutoRotating(false);
+          setManualTransition(false);
+          // Removed updating phaseOffsetRef here.
+          setLastInteraction(Date.now());
         }
-    };
+      };
+      
 
     return (
         <div className="cube-container">
