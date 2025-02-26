@@ -14,6 +14,7 @@ const Cube = () => {
     // Ref for requestAnimationFrame ID and last timestamp.
     const animationRef = useRef(null);
     const lastTimeRef = useRef(null);
+    const manualTransitionTimeoutRef = useRef(null);
 
     // Auto-rotation effect (runs without CSS transition).
     useEffect(() => {
@@ -41,13 +42,13 @@ const Cube = () => {
         };
     }, [isAutoRotating]);
 
-    // Auto-resume: after 4 seconds of no manual interaction, resume auto-rotation.
+    // Auto-resume - set time untill resume here.
     useEffect(() => {
         let timeoutId;
         if (!isAutoRotating && lastInteraction) {
         timeoutId = setTimeout(() => {
             setIsAutoRotating(true);
-        }, 2000);
+        }, 1000);
         }
         return () => {
         if (timeoutId) clearTimeout(timeoutId);
@@ -58,24 +59,34 @@ const Cube = () => {
     // and perform a manual update with CSS transition.
     useEffect(() => {
         const handleKeyDown = (e) => {
-        if (isAutoRotating) {
-            setIsAutoRotating(false);
-        }
-        setLastInteraction(Date.now());
-        // Enable transition for a manual update.
-        setManualTransition(true);
-        if (e.key === 'ArrowLeft') {
-            setRotation((prev) => ({ ...prev, y: prev.y - 45 }));
-        } else if (e.key === 'ArrowRight') {
-            setRotation((prev) => ({ ...prev, y: prev.y + 45 }));
-        }
-        // After the transition duration, disable the manual transition.
-        setTimeout(() => setManualTransition(false), 600);
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isAutoRotating]);
+            if (isAutoRotating) {
+                setIsAutoRotating(false);
+            }
+            setLastInteraction(Date.now());
+            setManualTransition(true);
+            if (e.key === 'ArrowLeft') {
+                setRotation((prev) => ({ ...prev, y: prev.y - 45 }));
+            } else if (e.key === 'ArrowRight') {
+                setRotation((prev) => ({ ...prev, y: prev.y + 45 }));
+            }
+            // Clear any pending timeout, then set a new one.
+            if (manualTransitionTimeoutRef.current) {
+                clearTimeout(manualTransitionTimeoutRef.current);
+            }
+            manualTransitionTimeoutRef.current = setTimeout(() => {
+                setManualTransition(false);
+                manualTransitionTimeoutRef.current = null;
+            }, 600);
+            };
+        
+            window.addEventListener('keydown', handleKeyDown);
+            return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            if (manualTransitionTimeoutRef.current) {
+                clearTimeout(manualTransitionTimeoutRef.current);
+            }
+            };
+        }, [isAutoRotating]);
 
     // On mouse enter, pause auto-rotation immediately.
     const handleMouseEnter = () => {
